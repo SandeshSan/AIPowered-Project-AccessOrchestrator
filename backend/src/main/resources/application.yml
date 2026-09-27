@@ -46,7 +46,7 @@ app:
     enabled: ${SEED_DEMO_DATA:true}
   security:
     # Sign-in password given to seeded demo users that have none (HTTP Basic; demo only)
-    demo-password: ${DEMO_PASSWORD:Welcome@123}
+    demo-password: ${DEMO_PASSWORD}
   iga:
     # mock-rest = Mock IGA Service over HTTP; in-memory = in-process stub (tests)
     provider: ${IGA_PROVIDER:mock-rest}

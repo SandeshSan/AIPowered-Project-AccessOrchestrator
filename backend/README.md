@@ -77,6 +77,18 @@ managers looking at people up to 3 levels below them; anyone else is refused (`A
 `GET /api/team` returns the signed-in user's reportees with level, projects and active access (the UI's **My Team**
 page, shown only to people with reportees). Read-only.
 
+## Comparing access with a colleague (via the assistant)
+
+"What access does Asha have that I don't?" — anyone may compare their active access with anyone's. Tool:
+`compareAccessWithColleague` (after `findEmployee`), backed by `ColleagueAccessService`.
+- Shows what the colleague has that you don't, what you have that they don't, and how many you share.
+- The colleague's **high-risk** entitlements appear only as "Restricted (high-risk access)" with their application,
+  unless you may see that person's access in full (their manager up the line, or an admin).
+- A difference is marked requestable only when it is part of the **required access of one of your own projects**
+  and not already requested; the assistant then offers the normal missing-access check for that project, with its
+  usual confirmation. Anything else needs a business reason from your manager. Comparing requests nothing.
+- Every comparison is written to the `audit.access-comparison` log (who, with whom, full detail or not).
+
 ## Adding someone to a project (via the assistant)
 
 "Add John to Atlas" — admins, or managers for people up to 3 levels below them. Tools: `previewAddToProject`,

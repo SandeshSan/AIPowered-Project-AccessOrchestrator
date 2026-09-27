@@ -12,6 +12,7 @@ import { catchError, map, of, switchMap } from 'rxjs';
 import { ApiService } from './core/api.service';
 import { AppTitleStrategy } from './core/app-title.strategy';
 import { CurrentUserService } from './core/current-user.service';
+import { IdleTimeoutService } from './core/idle-timeout.service';
 
 interface NavItem {
   path: string;
@@ -70,6 +71,7 @@ export class AppComponent {
 
   constructor() {
     inject(MatIconRegistry).setDefaultFontSetClass('material-icons-outlined');
+    inject(IdleTimeoutService); // signs out after 30 minutes without activity
   }
 
   protected signOut(): void {

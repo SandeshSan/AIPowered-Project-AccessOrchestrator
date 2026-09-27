@@ -30,6 +30,12 @@ sends it on every API call. All other pages require sign-in (`authGuard`, with a
 you out and returns you to the login page. The user menu (top right) shows who you are and has **Sign out**,
 which also forgets the assistant conversations. Demo credentials: see the backend README.
 
+**Inactivity timeout:** after **30 minutes** without keyboard, mouse, touch or scroll input you are signed out and
+the login page says why (`?reason=idle`, returning you to the same page afterwards). A warning with a
+**Stay signed in** button appears a minute before. Idle time is measured against the clock and kept in
+`sessionStorage`, so a sleeping laptop or a reload doesn't reset it. Change the limit in `IDLE_TIMEOUT_CONFIG`
+(`core/idle-timeout.service.ts`). This is enforced in the browser only; the API credential does not expire.
+
 ## Test and build
 
 ```bash

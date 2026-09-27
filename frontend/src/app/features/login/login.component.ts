@@ -27,7 +27,9 @@ import { CurrentUserService, basicToken } from '../../core/current-user.service'
           </div>
         </div>
 
-        @if (expired() && !error()) {
+        @if (reason() === 'idle' && !error()) {
+          <div class="notice" role="status"><mat-icon>schedule</mat-icon><span>You were signed out after 30 minutes of inactivity.</span></div>
+        } @else if (expired() && !error()) {
           <div class="notice" role="status"><mat-icon>info</mat-icon><span>Your session ended. Please sign in again.</span></div>
         }
         @if (error(); as message) {
@@ -93,6 +95,8 @@ export class LoginComponent {
   readonly returnUrl = input<string>();
   /** Set when the interceptor signed the user out because their credential stopped working. */
   readonly expired = input<string>();
+  /** Why the user was signed out, e.g. 'idle' from the inactivity timeout. */
+  readonly reason = input<string>();
 
   protected userId = '';
   protected password = '';

@@ -210,6 +210,51 @@ class AdditionAgentJourneyTest {
     }
 
     @Test
+    void anyoneCanCompareTheirAccessWithAColleague() throws Exception {
+        model.thenCall("findEmployee", "{\"query\":\"Asha\"}");
+        model.thenCall("compareAccessWithColleague", "{\"colleagueUserId\":\"NT10042\"}");
+        model.then(p -> {
+            String result = ScriptedChatModel.lastToolResult(p, "compareAccessWithColleague");
+            assertThat(JsonPath.<List<String>>read(result, "$.colleagueHasYouDont[*].entitlementCode"))
+                    .containsExactly("ORION_DEV", "NOVATECH_JIRA");
+            assertThat(JsonPath.<List<String>>read(result,
+                    "$.colleagueHasYouDont[?(@.entitlementCode == 'NOVATECH_JIRA')].requestableForProject"))
+                    .containsExactly("Novatech");
+            assertThat(JsonPath.<String>read(result, "$.nextStep")).contains("calculateMissingAccess");
+            return new org.springframework.ai.chat.messages.AssistantMessage("Asha has Orion GitHub and Novatech Jira.");
+        });
+
+        String john = chat("NT10036", null, "What access does Asha have that I don't?", false);
+
+        assertThat(JsonPath.<Boolean>read(john, "$.toolCalls[1].success")).isTrue();
+        assertThat(JsonPath.<Object>read(john, "$.pendingAction")).isNull(); // comparing requests nothing
+    }
+
+    @Test
+    void restrictedItemsReachTheModelLabelledButUnnamed() throws Exception {
+        model.thenCall("compareAccessWithColleague", "{\"colleagueUserId\":\"NT10051\"}");
+        model.then(p -> {
+            String result = ScriptedChatModel.lastToolResult(p, "compareAccessWithColleague");
+            assertThat(result).doesNotContain("ATLAS_VAULT_READ").doesNotContain("Vault Secrets Reader");
+            assertThat(JsonPath.<List<String>>read(result, "$.colleagueHasYouDont[?(@.restricted == true)].entitlementName"))
+                    .containsExactly("Restricted (high-risk access)");
+            return new org.springframework.ai.chat.messages.AssistantMessage("Priya has one restricted item.");
+        });
+
+        chat("NT10036", null, "Compare my access with Priya's", false);
+    }
+
+    @Test
+    void theViewRefusalPointsToTheComparison() throws Exception {
+        model.thenCall("getUserExistingAccess", "{\"userId\":\"NT10042\"}");
+        model.thenSay("You can compare your access with hers instead.");
+
+        String john = chat("NT10036", null, "What access does Asha have?", false);
+
+        assertThat(JsonPath.<String>read(john, "$.toolCalls[0].error")).contains("compareAccessWithColleague");
+    }
+
+    @Test
     void employeeCannotAddPeople() throws Exception {
         model.thenCall("previewAddToProject", "{\"userId\":\"NT10042\",\"projectId\":" + atlasId + "}");
         model.thenSay("Only a manager can add people.");
