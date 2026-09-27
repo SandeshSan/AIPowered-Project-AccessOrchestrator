@@ -1,9 +1,9 @@
 name: Build and Deploy to Cloud Run
 
 on:
-  push:
-    branches:
-      - akshay-deploy-test
+#  push:
+#    branches:
+#      - akshay-deploy-test
   workflow_dispatch:
 
 permissions:
