@@ -78,7 +78,7 @@ jobs:
             --port=8080 \
             --memory=1Gi \
             --timeout=300 \
-            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest" \
+            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest,DEMO_PASSWORD=DEMO_PASSWORD:latest" \
             --set-env-vars="MOCK_IGA_URL=${{ env.MOCK_IGA_URL }},OPENAI_BASE_URL=https://api.openai.com,OPENAI_MODEL=gpt-4o-mini"
 
           BACKEND_URL=$(gcloud run services describe access-orchestrator-backend --region=${{ env.REGION }} --format='value(status.url)')
