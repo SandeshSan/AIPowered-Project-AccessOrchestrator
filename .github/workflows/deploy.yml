@@ -1,0 +1,112 @@
+name: Build and Deploy to Cloud Run
+
+
+on:
+  push:
+    branches:
+      - akshay-deploy-test
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGION: asia-south1
+  REPOSITORY: ust-hackathon-repo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # ==========================================
+      # 1. MOCK IGA SERVICE
+      # ==========================================
+      - name: Build & Push Mock IGA
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/mock-iga-service:${{ github.sha }}"
+          docker build -t $IMAGE ./mock-iga-service
+          docker push $IMAGE
+
+      - name: Deploy Mock IGA to Cloud Run
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/mock-iga-service:${{ github.sha }}"
+          gcloud run deploy mock-iga-service \
+            --image=$IMAGE \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --memory=1Gi
+
+          MOCK_URL=$(gcloud run services describe mock-iga-service --region=${{ env.REGION }} --format='value(status.url)')
+          echo "MOCK_IGA_URL=$MOCK_URL" >> $GITHUB_ENV
+
+      # ==========================================
+      # 2. BACKEND SERVICE
+      # ==========================================
+      - name: Build & Push Backend
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/access-orchestrator-backend:${{ github.sha }}"
+          docker build -t $IMAGE ./backend
+          docker push $IMAGE
+
+      - name: Deploy Backend to Cloud Run
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/access-orchestrator-backend:${{ github.sha }}"
+          gcloud run deploy access-orchestrator-backend \
+            --image=$IMAGE \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --memory=1Gi \
+            --timeout=300 \
+            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest" \
+            --set-env-vars="MOCK_IGA_URL=${{ env.MOCK_IGA_URL }},OPENAI_BASE_URL=https://api.openai.com,OPENAI_MODEL=gpt-4o-mini"
+
+          BACKEND_URL=$(gcloud run services describe access-orchestrator-backend --region=${{ env.REGION }} --format='value(status.url)')
+          echo "BACKEND_URL=$BACKEND_URL" >> $GITHUB_ENV
+
+      # ==========================================
+      # 3. FRONTEND SERVICE
+      # ==========================================
+      - name: Build & Push Frontend
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/access-orchestrator-frontend:${{ github.sha }}"
+          docker build -t $IMAGE ./frontend
+          docker push $IMAGE
+
+      - name: Deploy Frontend to Cloud Run
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/access-orchestrator-frontend:${{ github.sha }}"
+          gcloud run deploy access-orchestrator-frontend \
+            --image=$IMAGE \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=8080 \
+            --set-env-vars="BACKEND_URL=${{ env.BACKEND_URL }}"
+
+      - name: Print Output URL
+        run: |
+          FRONTEND_URL=$(gcloud run services describe access-orchestrator-frontend --region=${{ env.REGION }} --format='value(status.url)')
+          echo "=========================================================="
+          echo "Deployment successful! Frontend URL: $FRONTEND_URL"
+          echo "=========================================================="
