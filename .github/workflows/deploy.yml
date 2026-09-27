@@ -51,7 +51,8 @@ jobs:
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --port=8080
+            --port=8080 \
+            --memory=1Gi
 
           MOCK_URL=$(gcloud run services describe mock-iga-service --region=${{ env.REGION }} --format='value(status.url)')
           echo "MOCK_IGA_URL=$MOCK_URL" >> $GITHUB_ENV
@@ -74,7 +75,10 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --port=8080 \
-            --set-env-vars="MOCK_IGA_URL=${{ env.MOCK_IGA_URL }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},OPENAI_BASE_URL=https://api.openai.com,OPENAI_MODEL=gpt-4o-mini"
+            --memory=1Gi \
+            --timeout=300 \
+            --set-secrets="OPENAI_API_KEY=OPENAI_API_KEY:latest" \
+            --set-env-vars="MOCK_IGA_URL=${{ env.MOCK_IGA_URL }},OPENAI_BASE_URL=https://api.openai.com,OPENAI_MODEL=gpt-4o-mini"
 
           BACKEND_URL=$(gcloud run services describe access-orchestrator-backend --region=${{ env.REGION }} --format='value(status.url)')
           echo "BACKEND_URL=$BACKEND_URL" >> $GITHUB_ENV
