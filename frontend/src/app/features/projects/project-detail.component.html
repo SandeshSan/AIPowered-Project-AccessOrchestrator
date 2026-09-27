@@ -1,0 +1,81 @@
+<div class="page">
+  <a class="back" routerLink="/projects"><mat-icon>arrow_back</mat-icon> All projects</a>
+
+  @if (state().error; as error) {
+    <div class="error-banner" role="alert"><mat-icon>error_outline</mat-icon><span>{{ error }}</span></div>
+  }
+  @if (state().loading) {
+    <div class="loading"><mat-spinner diameter="32" /></div>
+  }
+
+  @if (d(); as d) {
+    <header class="page-header">
+      <div>
+        <h1>{{ d.project.projectName }} <span class="mono muted code">{{ d.project.projectCode }}</span></h1>
+        <p>{{ d.project.description }}</p>
+      </div>
+      @if (!d.comparison.summary.fullyProvisioned) {
+        <a mat-flat-button color="primary" routerLink="/assistant" [queryParams]="{ q: assistantPrompt(d.project.projectName) }">
+          <mat-icon>auto_awesome</mat-icon> Request missing access
+        </a>
+      }
+    </header>
+
+    <section class="panel summary">
+      <div class="coverage">
+        <div class="coverage-head">
+          <span>Your access coverage</span>
+          <strong>{{ d.comparison.summary.coveragePercent }}%</strong>
+        </div>
+        <mat-progress-bar mode="determinate" [value]="d.comparison.summary.coveragePercent"
+                          [attr.aria-label]="'Access coverage ' + d.comparison.summary.coveragePercent + '%'" />
+        <div class="muted small verification">
+          <mat-icon>verified</mat-icon>{{ d.comparison.verification.expression }}
+        </div>
+      </div>
+      <div class="kpis">
+        <div><span class="kpi">{{ d.comparison.summary.requiredCount }}</span><span class="muted">Required</span></div>
+        <div class="ok"><span class="kpi">{{ d.comparison.summary.grantedCount }}</span><span class="muted">Granted</span></div>
+        <div [class.warn]="d.comparison.summary.missingCount > 0">
+          <span class="kpi">{{ d.comparison.summary.missingCount }}</span><span class="muted">Missing</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Standard access profile</h2>
+      <div class="table-scroll">
+        <table class="profile">
+          <thead>
+            <tr><th>Entitlement</th><th>Application</th><th>Environment</th><th>Risk</th><th>Why it's required</th><th>Your status</th></tr>
+          </thead>
+          <tbody>
+            @for (i of d.comparison.items; track i.entitlement.id) {
+              <tr>
+                <td><div class="name">{{ i.entitlement.entitlementName }}</div><div class="mono muted">{{ i.entitlement.entitlementCode }}</div></td>
+                <td>{{ i.entitlement.application }}</td>
+                <td>{{ i.entitlement.environment }}</td>
+                <td><app-risk-badge [level]="i.entitlement.riskLevel" /></td>
+                <td class="muted">{{ i.reason }}</td>
+                <td>
+                  <app-status-chip [status]="i.status" />
+                  @if (i.grantedDate) { <div class="muted small">since {{ i.grantedDate | date: 'mediumDate' }}</div> }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (optional().length) {
+        <h3>Optional for this project</h3>
+        <ul class="optional">
+          @for (o of optional(); track o.entitlement.id) {
+            <li><strong>{{ o.entitlement.entitlementName }}</strong> <span class="mono muted">{{ o.entitlement.entitlementCode }}</span>
+              <span class="muted"> · {{ o.reason }}</span></li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>

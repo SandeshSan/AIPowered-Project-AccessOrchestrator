@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: access-orchestrator
+  datasource:
+    # In-memory H2 for now: the schema and demo data are recreated on every start. Keep DB_CLOSE_DELAY=-1: without
+    # it H2 deletes the database whenever the pool closes all connections at once (e.g. after the laptop sleeps),
+    # and every sign-in then fails because no users are left. For PostgreSQL set
+    # DB_URL=jdbc:postgresql://localhost:5432/access_orchestrator plus DB_USERNAME / DB_PASSWORD.
+    url: ${DB_URL:jdbc:h2:mem:access_orchestrator;MODE=PostgreSQL;DB_CLOSE_DELAY=-1}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  ai:
+    model:
+      chat: ${AI_CHAT_PROVIDER:openai}
+      # Only chat is used; keep the other OpenAI model beans switched off
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+    openai:
+      # Any OpenAI-compatible endpoint works via OPENAI_BASE_URL. "not-set" lets the app start without a
+      # key; the agent endpoint then answers 503 with a clear message.
+      api-key: ${OPENAI_API_KEY:test}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+          temperature: 0.1
+          # One tool call at a time: the agent must see a result before deciding the next step
+          parallel-tool-calls: false
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  seed:
+    enabled: ${SEED_DEMO_DATA:true}
+  security:
+    # Sign-in password given to seeded demo users that have none (HTTP Basic; demo only)
+    demo-password: ${DEMO_PASSWORD:Welcome@123}
+  iga:
+    # mock-rest = Mock IGA Service over HTTP; in-memory = in-process stub (tests)
+    provider: ${IGA_PROVIDER:mock-rest}
+    mock:
+      base-url: ${MOCK_IGA_URL:http://localhost:8081}
+    polling:
+      enabled: ${IGA_POLLING_ENABLED:true}
+      interval: ${IGA_POLLING_INTERVAL:3s}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

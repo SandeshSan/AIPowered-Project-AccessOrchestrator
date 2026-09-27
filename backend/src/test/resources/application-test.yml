@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    # One database per Spring test context, so contexts with different beans never share (or drop) tables
+    url: jdbc:h2:mem:${random.uuid};MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  ai:
+    model:
+      # No real LLM in tests; agent tests register a scripted ChatModel
+      chat: none
+
+app:
+  iga:
+    provider: in-memory
+    polling:
+      enabled: false

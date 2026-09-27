@@ -1,0 +1,70 @@
+@if (!currentUser.signedIn()) {
+  <router-outlet />
+} @else {
+<mat-sidenav-container class="shell">
+  <mat-sidenav #drawer class="sidenav" [mode]="isHandset() ? 'over' : 'side'" [opened]="!isHandset()"
+               [fixedInViewport]="isHandset()">
+    <div class="brand">
+      <span class="logo"><mat-icon>shield_person</mat-icon></span>
+      <span class="brand-text">
+        <strong>Access Orchestrator</strong>
+        <small>Project access, simplified</small>
+      </span>
+    </div>
+
+    <nav aria-label="Main">
+      @for (item of visibleNav(); track item.path) {
+        <a class="nav-item" [routerLink]="item.path" routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' }"
+           (click)="isHandset() && drawer.close()">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <div class="sidenav-footer">
+      <mat-icon>lock</mat-icon>
+      <span>Approvals and provisioning are handled by the IGA system.</span>
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="content">
+    <mat-toolbar class="topbar">
+      @if (isHandset()) {
+        <button mat-icon-button (click)="drawer.toggle()" aria-label="Open navigation">
+          <mat-icon>menu</mat-icon>
+        </button>
+      }
+      <span class="page-name">{{ pageName() }}</span>
+      <span class="spacer"></span>
+
+      <button class="user-button" [matMenuTriggerFor]="userMenu" aria-label="Signed-in user">
+        <span class="avatar">{{ initials() }}</span>
+        @if (!isHandset()) {
+          <span class="user-text">
+            <strong>{{ currentUser.user()?.name ?? currentUser.userId() }}</strong>
+            <small>{{ currentUser.user()?.role }} · {{ currentUser.userId() }}</small>
+          </span>
+        }
+        <mat-icon>expand_more</mat-icon>
+      </button>
+      <mat-menu #userMenu="matMenu" xPosition="before">
+        <div class="menu-profile">
+          <strong>{{ currentUser.user()?.name }}</strong>
+          <small>{{ currentUser.user()?.email }}</small>
+          <small>{{ currentUser.userId() }}{{ currentUser.isAdmin() ? ' · Admin' : '' }}</small>
+        </div>
+        <button mat-menu-item (click)="signOut()">
+          <mat-icon>logout</mat-icon>
+          <span>Sign out</span>
+        </button>
+      </mat-menu>
+    </mat-toolbar>
+
+    <main>
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>
+}

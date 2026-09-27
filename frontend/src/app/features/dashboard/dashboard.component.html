@@ -1,0 +1,134 @@
+<div class="page">
+  @if (state().error; as error) {
+    <div class="error-banner" role="alert"><mat-icon>error_outline</mat-icon><span>{{ error }}</span></div>
+  }
+
+  @if (state().loading) {
+    <div class="loading"><mat-spinner diameter="36" /></div>
+  }
+
+  @if (d(); as d) {
+    <header class="page-header">
+      <div>
+        <h1>{{ greeting() }}, {{ d.user.name }}</h1>
+        <p>{{ d.user.role }} · {{ d.user.department }} · {{ d.user.userId }}
+          @if (d.user.managerName) { · Reports to {{ d.user.managerName }} }</p>
+      </div>
+      <a mat-flat-button color="primary" routerLink="/assistant">
+        <mat-icon>auto_awesome</mat-icon> Open Access Assistant
+      </a>
+    </header>
+
+    <section class="stats" aria-label="Summary">
+      <app-stat-card label="Active Access" [value]="d.activeAccessCount" icon="verified_user" tone="ok"
+                     link="/my-access" hint="Active entitlements" />
+      <app-stat-card label="Pending Requests" [value]="d.pendingRequestCount" icon="hourglass_top" tone="info"
+                     link="/requests" [hint]="d.pendingRequestCount ? 'Awaiting approval or provisioning' : 'Nothing in progress'" />
+      <app-stat-card label="Projects" [value]="d.projectCount" icon="folder_open" tone="primary"
+                     [link]="isAdmin() ? '/projects' : null" hint="Assigned to you" />
+      <app-stat-card label="Missing Access" [value]="d.missingAccessCount" icon="report_gmailerrorred"
+                     [tone]="d.missingAccessCount ? 'warn' : 'ok'" link="/assistant"
+                     [hint]="d.missingAccessCount
+                       ? (d.missingAlreadyRequestedCount ? d.missingAlreadyRequestedCount + ' already requested' : 'Required for your projects')
+                       : 'All required access in place'" />
+    </section>
+
+    @if (outstanding() > 0) {
+      @for (p of gaps(); track p.project.id) {
+        <section class="callout" aria-label="Missing access">
+          <mat-icon>lightbulb</mat-icon>
+          <div class="callout-text">
+            <strong>You're missing {{ p.access.missingCount }} of {{ p.access.requiredCount }} required entitlements for {{ p.project.projectName }}.</strong>
+            <span>The Access Assistant can explain what's missing and submit the request for approval.</span>
+          </div>
+          <a mat-stroked-button color="primary" routerLink="/assistant"
+             [queryParams]="{ q: assistantPrompt(p.project.projectName) }">Get access</a>
+        </section>
+      }
+    }
+
+    <div class="grid">
+      <section class="panel">
+        <h2>My Projects @if (isAdmin()) { <a routerLink="/projects" class="link">View all</a> }</h2>
+        @for (p of d.projects; track p.project.id) {
+          <ng-template #projectBody>
+            <div class="project-head">
+              <span class="project-name">{{ p.project.projectName }}</span>
+              @if (p.access.fullyProvisioned) {
+                <app-status-chip status="PROVISIONED" label="Fully provisioned" />
+              } @else {
+                <app-status-chip status="MISSING" [label]="p.access.missingCount + ' missing'" />
+              }
+            </div>
+            <div class="muted small">{{ p.projectRole }} · joined {{ p.joinedDate | date: 'mediumDate' }}</div>
+            <mat-progress-bar mode="determinate" [value]="p.access.coveragePercent"
+                              [attr.aria-label]="'Access coverage ' + p.access.coveragePercent + '%'" />
+            <div class="muted small">{{ p.access.grantedCount }} of {{ p.access.requiredCount }} required entitlements · {{ p.access.coveragePercent }}%</div>
+          </ng-template>
+          @if (isAdmin()) {
+            <a class="project" [routerLink]="['/projects', p.project.id]"><ng-container [ngTemplateOutlet]="projectBody" /></a>
+          } @else {
+            <div class="project static"><ng-container [ngTemplateOutlet]="projectBody" /></div>
+          }
+        } @empty {
+          <div class="empty-state">You are not assigned to any project yet.</div>
+        }
+      </section>
+
+      <section class="panel">
+        <h2>Pending Requests <a routerLink="/requests" class="link">View all</a></h2>
+        @for (r of d.pendingRequests; track r.requestId) {
+          <div class="request">
+            <div class="request-head">
+              <span><strong>{{ r.igaRequestId ?? r.requestId }}</strong> <span class="muted">· {{ r.projectName }}</span></span>
+              <app-status-chip [status]="r.status" />
+            </div>
+            <div class="muted small">{{ r.items.length }} entitlement(s) · submitted {{ r.createdAt | date: 'medium' }}</div>
+            <app-lifecycle-stepper [stages]="r.lifecycle" [compact]="true" />
+          </div>
+        } @empty {
+          <div class="empty-state">
+            <mat-icon>task_alt</mat-icon>
+            <div>No requests in progress.</div>
+          </div>
+        }
+      </section>
+
+      <section class="panel">
+        <h2>Active Entitlements <a routerLink="/my-access" class="link">View all</a></h2>
+        <table class="simple">
+          <thead><tr><th>Entitlement</th><th>Application</th><th>Risk</th><th>Granted</th></tr></thead>
+          <tbody>
+            @for (a of d.activeAccess.slice(0, 6); track a.entitlement.id) {
+              <tr>
+                <td><div>{{ a.entitlement.entitlementName }}</div><div class="mono muted">{{ a.entitlement.entitlementCode }}</div></td>
+                <td>{{ a.entitlement.application }}</td>
+                <td><app-risk-badge [level]="a.entitlement.riskLevel" /></td>
+                <td class="nowrap">{{ a.grantedDate | date: 'mediumDate' }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty-state">No active access.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Recently Provisioned <span class="muted small">Last 30 days</span></h2>
+        <ul class="recent">
+          @for (a of d.recentlyProvisioned; track a.entitlement.id) {
+            <li>
+              <span class="ok-icon"><mat-icon>check</mat-icon></span>
+              <span class="recent-text">
+                <strong>{{ a.entitlement.entitlementName }}</strong>
+                <span class="muted small">{{ a.entitlement.application }} · via {{ a.source }} · {{ a.grantedDate | date: 'mediumDate' }}</span>
+              </span>
+            </li>
+          } @empty {
+            <li class="empty-state">Nothing provisioned recently.</li>
+          }
+        </ul>
+      </section>
+    </div>
+  }
+</div>

@@ -1,0 +1,5 @@
+mock-iga:
+  provisioning:
+    auto-provision-on-approve: false
+    start-delay: 0s
+    duration: 200ms

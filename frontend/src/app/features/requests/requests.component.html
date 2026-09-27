@@ -1,0 +1,90 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Access Requests</h1>
+      <p>Track approval and provisioning. In-progress requests update automatically.</p>
+    </div>
+    <mat-button-toggle-group [value]="filter()" (change)="filter.set($event.value)" aria-label="Filter requests"
+                             hideSingleSelectionIndicator>
+      <mat-button-toggle value="all">All ({{ requests().length }})</mat-button-toggle>
+      <mat-button-toggle value="open">In progress ({{ openCount() }})</mat-button-toggle>
+      <mat-button-toggle value="closed">Completed</mat-button-toggle>
+      @if (startedByMe().length) {
+        <mat-button-toggle value="startedByMe">Started by me ({{ startedByMe().length }})</mat-button-toggle>
+      }
+    </mat-button-toggle-group>
+  </header>
+
+  @if (state().error; as error) {
+    <div class="error-banner" role="alert"><mat-icon>error_outline</mat-icon><span>{{ error }}</span></div>
+  }
+
+  @if (state().loading && !requests().length) {
+    <div class="loading"><mat-spinner diameter="32" /></div>
+  }
+
+  <div class="list">
+    @for (r of visible(); track r.requestId) {
+      <article class="panel request">
+        <div class="head">
+          <div class="title">
+            <h2>{{ r.igaRequestId ?? r.requestId }}</h2>
+            @if (r.type === 'REVOKE') { <span class="type-badge">Revocation</span> }
+            <app-status-chip [status]="r.status" [label]="statusLabel(r.status, r.type)" />
+            @if (isOpen(r.status)) {
+              <span class="live" matTooltip="Updates automatically"><span class="pulse"></span>Live</span>
+            }
+          </div>
+          <div class="actions">
+            @if (r.status === 'DRAFT') {
+              <button mat-flat-button color="primary" (click)="submit(r)" [disabled]="busy() === r.requestId">
+                Submit for approval
+              </button>
+            } @else if (isOpen(r.status)) {
+              <button mat-stroked-button (click)="sync(r)" [disabled]="busy() === r.requestId">
+                <mat-icon>sync</mat-icon> Refresh status
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="meta muted">
+          <span><mat-icon>folder_open</mat-icon>{{ r.projectName }}</span>
+          <span><mat-icon>event</mat-icon>Created {{ r.createdAt | date: 'medium' }}</span>
+          <span><mat-icon>update</mat-icon>Updated {{ r.updatedAt | date: 'medium' }}</span>
+          @if (filter() === 'startedByMe') { <span><mat-icon>badge</mat-icon>For {{ r.userId }}</span> }
+          <span><mat-icon>person_outline</mat-icon>By {{ r.createdBy }}</span>
+          @if (r.igaRequestId) { <span class="mono">Ref {{ r.requestId }}</span> }
+        </div>
+
+        @if (r.justification && r.type === 'REVOKE') {
+          <div class="reason"><mat-icon>chat_bubble_outline</mat-icon>Reason: {{ r.justification }}</div>
+        }
+
+        <app-lifecycle-stepper class="stepper" [stages]="r.lifecycle" />
+
+        <table class="items">
+          <thead><tr><th>Entitlement</th><th>Application</th><th>Reason</th><th>Status</th></tr></thead>
+          <tbody>
+            @for (i of r.items; track i.entitlement.id) {
+              <tr>
+                <td><div>{{ i.entitlement.entitlementName }}</div><div class="mono muted">{{ i.entitlement.entitlementCode }}</div></td>
+                <td>{{ i.entitlement.application }}</td>
+                <td class="muted">{{ i.reason }}</td>
+                <td><app-status-chip [status]="i.status" /></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </article>
+    } @empty {
+      @if (!state().loading) {
+        <div class="panel empty">
+          <mat-icon>inbox</mat-icon>
+          <p>{{ filter() === 'all' ? 'You have no access requests yet.' : 'No requests in this view.' }}</p>
+          <a mat-stroked-button color="primary" routerLink="/assistant">Ask the Access Assistant</a>
+        </div>
+      }
+    }
+  </div>
+</div>

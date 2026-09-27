@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: mock-iga-service
+
+server:
+  port: ${SERVER_PORT:8081}
+
+mock-iga:
+  # First id handed out; ids look like REQ-10145
+  request-id-start: 10145
+  provisioning:
+    # After a manager approves, start provisioning automatically (no separate /provision call needed)
+    auto-provision-on-approve: ${MOCK_IGA_AUTO_PROVISION:true}
+    # APPROVED -> PROVISIONING pause (auto mode only), so the demo shows the APPROVED step
+    start-delay: ${MOCK_IGA_START_DELAY:2s}
+    # PROVISIONING -> PROVISIONED duration
+    duration: ${MOCK_IGA_PROVISION_DURATION:3s}

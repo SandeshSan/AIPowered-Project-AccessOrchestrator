@@ -1,0 +1,39 @@
+# Full demo stack: Mock IGA + backend (in-memory H2, demo data re-seeded on every start) + UI.
+#   cp .env.example .env    # then put your OpenAI key in .env
+#   docker compose up --build
+# UI http://localhost:4200 · Mock IGA console http://localhost:8081 · API http://localhost:8080
+services:
+  mock-iga:
+    build: ./mock-iga-service
+    image: mock-iga-service:latest
+    ports:
+      - "8081:8081"
+
+  backend:
+    build: ./backend
+    image: access-orchestrator-backend:latest
+    depends_on:
+      mock-iga:
+        condition: service_healthy
+    environment:
+      MOCK_IGA_URL: http://mock-iga:8081
+      # Without a key the app still starts; the assistant then answers 503
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-set}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # Passed through only when set (in .env or the shell); otherwise the application.yml default applies.
+      # Given to the seeded demo users.
+      DEMO_PASSWORD:
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    image: access-orchestrator-frontend:latest
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "4200:80"

@@ -1,0 +1,29 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    # API calls go to the backend (same origin for the browser, so no CORS). The Authorization header
+    # (HTTP Basic sign-in) is passed through unchanged.
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Assistant turns can involve several LLM round trips
+        proxy_read_timeout 180s;
+    }
+
+    # Hashed build assets can be cached for good
+    location ~* \.(?:js|css|woff2?|ttf|svg|png|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Angular routes (/login, /team, ...) all load index.html, which must never be cached stale
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+}

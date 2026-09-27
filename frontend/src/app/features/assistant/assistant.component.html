@@ -1,0 +1,330 @@
+<div class="assistant">
+  <header class="assistant-header">
+    <div>
+      <h1>Access Assistant</h1>
+      <p class="muted">Ask for the access you need. I check your project's access profile, explain what's missing and submit requests for approval once you confirm.</p>
+    </div>
+    @if (store.messages().length) {
+      <button mat-stroked-button (click)="store.reset()"><mat-icon>add_comment</mat-icon> New conversation</button>
+    }
+  </header>
+
+  @if (store.notConfigured(); as reason) {
+    <div class="error-banner" role="alert">
+      <mat-icon>cloud_off</mat-icon>
+      <div><strong>The AI assistant isn't available.</strong><div>{{ reason }}</div></div>
+    </div>
+  }
+
+  <div class="thread" #scroller aria-live="polite">
+    @if (!store.messages().length) {
+      <div class="welcome">
+        <span class="welcome-icon"><mat-icon>auto_awesome</mat-icon></span>
+        <h2>How can I help, {{ currentUser.user()?.name ?? currentUser.userId() }}?</h2>
+        <p class="muted">Try one of these:</p>
+        <div class="suggestions">
+          @for (s of suggestions(); track s) {
+            <button class="suggestion" (click)="send(s)">{{ s }}</button>
+          }
+        </div>
+      </div>
+    }
+
+    @for (m of store.messages(); track m.id) {
+      @switch (m.role) {
+        @case ('user') {
+          <div class="row user">
+            <div class="bubble user-bubble">{{ m.text }}</div>
+          </div>
+        }
+        @case ('error') {
+          <div class="row">
+            <div class="bubble error-bubble"><mat-icon>error_outline</mat-icon><span>{{ m.text }}</span></div>
+          </div>
+        }
+        @default {
+          <div class="row">
+            <span class="bot-avatar" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></span>
+            <div class="bot-body">
+              <div class="bubble bot-bubble">{{ m.text }}</div>
+
+              @if (m.response?.analysis; as a) {
+                <div class="card">
+                  <div class="card-title">
+                    <span><mat-icon>fact_check</mat-icon> {{ a.projectName }} access check</span>
+                    <span class="muted small">{{ a.verification }}</span>
+                  </div>
+                  <div class="columns">
+                    <div>
+                      <div class="col-title">Already granted</div>
+                      @for (i of a.alreadyHave; track i.entitlementId) {
+                        <div class="ent ok"><mat-icon>check_circle</mat-icon>
+                          <span><strong>{{ i.entitlementName }}</strong><span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span></span>
+                        </div>
+                      } @empty { <div class="muted small">None</div> }
+                    </div>
+                    <div>
+                      <div class="col-title missing-title">
+                        <span>Missing</span>
+                        @if (store.openOffer()?.messageId === m.id && requestable().length > 1) {
+                          <button class="link-button" (click)="selectAll(!allSelected())">
+                            {{ allSelected() ? 'Clear selection' : 'Select all' }}
+                          </button>
+                        }
+                      </div>
+                      @for (i of a.missing; track i.entitlementId) {
+                        @if (isSelectable(m.id, i)) {
+                          <label class="ent selectable" [class.unselected]="!selected().has(i.entitlementId)">
+                            <mat-checkbox color="primary" [checked]="selected().has(i.entitlementId)"
+                                          (change)="toggle(i.entitlementId, $event.checked)"
+                                          [aria-label]="'Request ' + i.entitlementName" />
+                            <span>
+                              <strong>{{ i.entitlementName }}</strong>
+                              <span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span>
+                              @if (i.reason) { <span class="reason">{{ i.reason }}</span> }
+                            </span>
+                            <app-risk-badge [level]="i.riskLevel" />
+                          </label>
+                        } @else {
+                          <div class="ent warn"><mat-icon>radio_button_unchecked</mat-icon>
+                            <span>
+                              <strong>{{ i.entitlementName }}</strong>
+                              <span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span>
+                              @if (i.reason) { <span class="reason">{{ i.reason }}</span> }
+                            </span>
+                            <app-risk-badge [level]="i.riskLevel" />
+                          </div>
+                        }
+                      } @empty { <div class="muted small">Nothing missing</div> }
+                    </div>
+                  </div>
+                  @if (a.alreadyRequested.length) {
+                    <div class="note"><mat-icon>schedule</mat-icon>
+                      Already requested:
+                      @for (r of a.alreadyRequested; track r.entitlementCode; let last = $last) {
+                        <span class="mono">{{ r.entitlementCode }}</span> ({{ r.requestId }}){{ last ? '' : ', ' }}
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (m.response?.additionPreview; as ap) {
+                <div class="card addition-card">
+                  <div class="card-title">
+                    <span><mat-icon>person_add</mat-icon> Add {{ ap.employeeName }} to {{ ap.projectName }}</span>
+                    <span class="muted small">as {{ ap.projectRole }} · {{ ap.authority }}</span>
+                  </div>
+                  @if (ap.blockers.length) {
+                    <div class="blockers" role="alert">
+                      <mat-icon>block</mat-icon>
+                      <div>@for (b of ap.blockers; track b) { <div>{{ b }}</div> }</div>
+                    </div>
+                  }
+                  <div class="columns">
+                    <div>
+                      <div class="col-title">Already has</div>
+                      @for (i of ap.alreadyHave; track i.entitlementId) {
+                        <div class="ent ok"><mat-icon>check_circle</mat-icon>
+                          <span><strong>{{ i.entitlementName }}</strong><span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span></span>
+                        </div>
+                      } @empty { <div class="muted small">None of the required access yet</div> }
+                    </div>
+                    <div>
+                      <div class="col-title">Will still need</div>
+                      @for (i of ap.missingAccess; track i.entitlementId) {
+                        <div class="ent warn"><mat-icon>radio_button_unchecked</mat-icon>
+                          <span><strong>{{ i.entitlementName }}</strong><span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span></span>
+                        </div>
+                      } @empty { <div class="muted small">Nothing: all required access is in place</div> }
+                    </div>
+                  </div>
+                  <div class="note"><mat-icon>info</mat-icon>Only the project membership is added. No access is requested; {{ ap.employeeName }} can ask the Access Assistant for it.</div>
+                  @if (store.openAddition()?.messageId === m.id && ap.canProceed) {
+                    <div class="confirm">
+                      <button mat-flat-button color="primary" (click)="confirmAddition()"><mat-icon>person_add</mat-icon> Confirm &amp; add</button>
+                      <button mat-stroked-button (click)="send('No, do not add them')">Cancel</button>
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (m.response?.addition; as ar) {
+                <div class="card request-card">
+                  <div class="card-title">
+                    <span><mat-icon>how_to_reg</mat-icon> {{ ar.employeeName }} added to {{ ar.projectName }}</span>
+                    <span class="muted small">as {{ ar.projectRole }}</span>
+                  </div>
+                  @if (ar.missingAccess.length) {
+                    <div class="result-line muted small">Still needs (to request themselves):</div>
+                    <div class="chips">
+                      @for (i of ar.missingAccess; track i.entitlementId) { <span class="code-chip mono">{{ i.entitlementCode }}</span> }
+                    </div>
+                  } @else {
+                    <div class="result-line muted small">All required access is already in place.</div>
+                  }
+                </div>
+              }
+
+              @if (m.response?.removalPreview; as rp) {
+                <div class="card removal-card">
+                  <div class="card-title">
+                    <span><mat-icon>person_remove</mat-icon>
+                      {{ rp.selfRemoval ? 'Leave' : 'Remove ' + rp.employeeName + ' from' }} {{ rp.projectName }}</span>
+                    <span class="muted small">{{ rp.projectRole }}</span>
+                  </div>
+                  @if (rp.blockers.length) {
+                    <div class="blockers" role="alert">
+                      <mat-icon>block</mat-icon>
+                      <div>@for (b of rp.blockers; track b) { <div>{{ b }}</div> }</div>
+                    </div>
+                  }
+                  <div class="columns">
+                    <div>
+                      <div class="col-title">Will be revoked</div>
+                      @for (i of rp.toRevoke; track i.entitlementId) {
+                        <div class="ent bad"><mat-icon>remove_circle_outline</mat-icon>
+                          <span>
+                            <strong>{{ i.entitlementName }}</strong>
+                            <span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span>
+                          </span>
+                          <app-risk-badge [level]="i.riskLevel" />
+                        </div>
+                      } @empty { <div class="muted small">No project access to revoke; only the membership ends.</div> }
+                    </div>
+                    <div>
+                      <div class="col-title">Default access kept</div>
+                      @for (i of rp.keptDefault; track i.entitlementId) {
+                        <div class="ent ok"><mat-icon>check_circle</mat-icon>
+                          <span><strong>{{ i.entitlementName }}</strong><span class="mono muted">{{ i.application }} · {{ i.entitlementCode }}</span></span>
+                        </div>
+                      } @empty { <div class="muted small">None</div> }
+                    </div>
+                  </div>
+                  @if (rp.requestsToCancel.length) {
+                    <div class="note"><mat-icon>cancel_schedule_send</mat-icon>
+                      Pending requests that will be cancelled: <span class="mono">{{ rp.requestsToCancel.join(', ') }}</span>
+                    </div>
+                  }
+                  <div class="note"><mat-icon>gavel</mat-icon>The revocation needs approval in the IGA before access is removed.</div>
+
+                  @if (store.openRemoval()?.messageId === m.id && rp.canProceed) {
+                    <form class="removal-confirm" (ngSubmit)="confirmRemoval()">
+                      <input type="text" name="removalReason" [ngModel]="removalReason()" (ngModelChange)="removalReason.set($event)"
+                             placeholder="Reason (required), e.g. Moved to Helios Mobile" maxlength="500"
+                             aria-label="Reason for the removal">
+                      <button mat-flat-button color="warn" type="submit" [disabled]="removalReason().trim().length < 3">
+                        <mat-icon>person_remove</mat-icon> Confirm removal
+                      </button>
+                      <button mat-stroked-button type="button" (click)="send('No, cancel the removal')">Cancel</button>
+                    </form>
+                  }
+                </div>
+              }
+
+              @if (m.response?.removal; as rr) {
+                <div class="card removal-result-card">
+                  <div class="card-title">
+                    <span><mat-icon>how_to_reg</mat-icon> {{ rr.employeeName }} removed from {{ rr.projectName }}</span>
+                    @if (rr.revocationStatusLabel) {
+                      <app-status-chip status="PENDING_APPROVAL" [label]="rr.revocationStatusLabel" />
+                    }
+                  </div>
+                  <div class="muted small">Reason: {{ rr.reason }}</div>
+                  @if (rr.revocationRequestId) {
+                    <div class="result-line">Revocation request <strong class="mono">{{ rr.revocationRequestId }}</strong>:</div>
+                    <div class="chips">
+                      @for (i of rr.revoking; track i.entitlementId) { <span class="code-chip mono revoke">{{ i.entitlementCode }}</span> }
+                    </div>
+                  } @else {
+                    <div class="result-line muted">No project access needed revoking.</div>
+                  }
+                  @if (rr.keptDefault.length) {
+                    <div class="result-line muted small">Default access kept:
+                      @for (i of rr.keptDefault; track i.entitlementId; let last = $last) { {{ i.entitlementName }}{{ last ? '' : ', ' }} }
+                    </div>
+                  }
+                  @if (rr.cancelledRequests.length) {
+                    <div class="result-line muted small">Cancelled requests: <span class="mono">{{ rr.cancelledRequests.join(', ') }}</span></div>
+                  }
+                  <div class="request-foot">
+                    <span class="muted small">Access is removed once the revocation is approved in the IGA.</span>
+                    <a mat-button color="primary" routerLink="/requests">Track revocation <mat-icon iconPositionEnd>arrow_forward</mat-icon></a>
+                  </div>
+                </div>
+              }
+
+              @if (m.response?.accessRequest; as r) {
+                <div class="card request-card">
+                  <div class="card-title">
+                    <span><mat-icon>task_alt</mat-icon> Request {{ r.requestId }}</span>
+                    <app-status-chip [status]="r.status" [label]="r.statusLabel" />
+                  </div>
+                  <div class="chips">
+                    @for (i of r.requested; track i.entitlementId) { <span class="code-chip mono">{{ i.entitlementCode }}</span> }
+                  </div>
+                  <div class="request-foot">
+                    <span class="muted small">A manager must approve this request before access is provisioned.</span>
+                    <a mat-button color="primary" routerLink="/requests">Track request <mat-icon iconPositionEnd>arrow_forward</mat-icon></a>
+                  </div>
+                </div>
+              }
+
+              @if (isLast(m) && store.pendingActions().includes('ACCESS_REQUEST')) {
+                <div class="confirm">
+                  @if (store.openOffer()) {
+                    <button mat-flat-button color="primary" (click)="submitSelection()" [disabled]="selectedCount() === 0">
+                      <mat-icon>send</mat-icon>
+                      @if (allSelected()) { Yes, submit all {{ selectedCount() }} } @else { Submit {{ selectedCount() }} selected }
+                    </button>
+                  } @else {
+                    <button mat-flat-button color="primary" (click)="send('Yes')"><mat-icon>send</mat-icon> Yes, submit the requests</button>
+                  }
+                  <button mat-stroked-button (click)="send('No, not now')">No, not now</button>
+                  @if (store.openOffer() && selectedCount() === 0) {
+                    <span class="muted small">Select at least one entitlement to submit.</span>
+                  }
+                </div>
+              }
+
+              @if (m.response?.toolCalls?.length) {
+                <button class="tools-toggle" (click)="toggleTools(m.id)" [attr.aria-expanded]="expandedTools().has(m.id)">
+                  <mat-icon>{{ expandedTools().has(m.id) ? 'expand_less' : 'build' }}</mat-icon>
+                  {{ m.response!.toolCalls.length }} tool call(s) · {{ m.at | date: 'shortTime' }}
+                </button>
+                @if (expandedTools().has(m.id)) {
+                  <ol class="tools">
+                    @for (t of m.response!.toolCalls; track $index) {
+                      <li [class.failed]="!t.success">
+                        <span class="mono">{{ t.tool }}</span>
+                        @if (!t.success) { <span class="small"> refused/failed: {{ t.error }}</span> }
+                      </li>
+                    }
+                  </ol>
+                }
+              }
+            </div>
+          </div>
+        }
+      }
+    }
+
+    @if (store.pending()) {
+      <div class="row">
+        <span class="bot-avatar" aria-hidden="true"><mat-icon>auto_awesome</mat-icon></span>
+        <div class="bubble bot-bubble typing"><mat-spinner diameter="16" /> Checking your access…</div>
+      </div>
+    }
+  </div>
+
+  <form class="composer" (ngSubmit)="send()">
+    <textarea cdkTextareaAutosize cdkAutosizeMinRows="1" cdkAutosizeMaxRows="6"
+              [ngModel]="draft()" (ngModelChange)="draft.set($event)" name="message"
+              (keydown)="onKeydown($event)" placeholder="Ask about project access…"
+              aria-label="Message the Access Assistant" [disabled]="store.pending()"></textarea>
+    <button mat-flat-button color="primary" type="submit" [disabled]="store.pending() || !draft().trim()" aria-label="Send">
+      <mat-icon>send</mat-icon>
+    </button>
+  </form>
+  <p class="disclaimer">The assistant can only request access; managers approve and the IGA system provisions it.</p>
+</div>

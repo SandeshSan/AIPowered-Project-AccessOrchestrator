@@ -1,0 +1,110 @@
+.shell { height: 100vh; background: var(--app-bg); }
+
+.sidenav {
+  width: 248px;
+  background: var(--app-nav);
+  color: var(--app-nav-text);
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+
+  ::ng-deep .mat-drawer-inner-container { display: flex; flex-direction: column; }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 24px;
+
+  .logo {
+    width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #5c6bc0, #26a69a); color: #fff;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.25; }
+  strong { color: #fff; font-size: 15px; font-weight: 600; }
+  small { font-size: 12px; color: #8a94a8; }
+}
+
+nav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--app-nav-text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  &:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+  &:focus-visible { outline: 2px solid #7986cb; outline-offset: -2px; }
+  &.active { background: rgba(121, 134, 203, .22); color: #fff; }
+  &.active mat-icon { color: #9fa8da; }
+}
+
+.sidenav-footer {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px 20px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8a94a8;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; flex: none; margin-top: 1px; }
+}
+
+.content { display: flex; flex-direction: column; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 64px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+  padding: 0 24px;
+  gap: 8px;
+
+  @media (max-width: 720px) { padding: 0 8px 0 4px; }
+}
+
+.page-name { font-size: 16px; font-weight: 600; }
+.spacer { flex: 1; }
+
+.user-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+
+  &:hover, &:focus-visible { border-color: var(--app-border); background: var(--app-bg); outline: none; }
+  mat-icon { color: var(--app-muted); }
+}
+
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--app-primary); color: #fff; font-size: 13px; font-weight: 600;
+}
+
+.user-text {
+  display: flex; flex-direction: column; text-align: left; line-height: 1.25;
+  strong { font-size: 13px; font-weight: 600; }
+  small { font-size: 12px; color: var(--app-muted); }
+}
+
+.menu-profile { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px 10px; min-width: 220px;
+  border-bottom: 1px solid var(--app-border); margin-bottom: 4px;
+  small { color: var(--app-muted); font-size: 12px; } }
+
+main { flex: 1; }
