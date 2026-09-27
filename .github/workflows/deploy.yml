@@ -4,7 +4,7 @@ name: Build and Deploy to Cloud Run
 on:
   push:
     branches:
-      - feature12
+      - develop
   workflow_dispatch:
 
 permissions:
