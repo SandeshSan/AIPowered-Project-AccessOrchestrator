@@ -2,12 +2,16 @@ package com.accessorchestrator.agent;
 
 import com.accessorchestrator.agent.AgentModels.AccessItem;
 import com.accessorchestrator.agent.AgentModels.AccessRequestView;
+import com.accessorchestrator.agent.AgentModels.ColleagueComparisonView;
+import com.accessorchestrator.agent.AgentModels.ComparedItem;
 import com.accessorchestrator.agent.AgentModels.InFlightItem;
 import com.accessorchestrator.agent.AgentModels.MissingAccessView;
 import com.accessorchestrator.agent.AgentModels.ProjectView;
 import com.accessorchestrator.agent.AgentModels.UserView;
 import com.accessorchestrator.dto.AccessComparisonResponse;
 import com.accessorchestrator.dto.AccessRequestDto;
+import com.accessorchestrator.dto.ColleagueComparisonDtos.ColleagueComparisonDto;
+import com.accessorchestrator.dto.ColleagueComparisonDtos.ComparedEntitlement;
 import com.accessorchestrator.dto.ComparisonStatus;
 import com.accessorchestrator.dto.EntitlementDto;
 import com.accessorchestrator.dto.OpenRequestDto;
@@ -17,6 +21,7 @@ import com.accessorchestrator.dto.UserDto;
 import com.accessorchestrator.service.AccessAnalysisService;
 import com.accessorchestrator.service.AccessAuthority;
 import com.accessorchestrator.service.AccessRequestService;
+import com.accessorchestrator.service.ColleagueAccessService;
 import com.accessorchestrator.service.EntitlementService;
 import com.accessorchestrator.service.ProjectService;
 import com.accessorchestrator.service.UserService;
@@ -28,6 +33,7 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -48,10 +54,13 @@ public class AccessAgentTools {
     private final AccessAnalysisService accessAnalysisService;
     private final AccessRequestService accessRequestService;
     private final AccessAuthority accessAuthority;
+    private final ColleagueAccessService colleagueAccessService;
 
     public AccessAgentTools(UserService userService, ProjectService projectService,
                             EntitlementService entitlementService, AccessAnalysisService accessAnalysisService,
-                            AccessRequestService accessRequestService, AccessAuthority accessAuthority) {
+                            AccessRequestService accessRequestService, AccessAuthority accessAuthority,
+                            ColleagueAccessService colleagueAccessService) {
+        this.colleagueAccessService = colleagueAccessService;
         this.userService = userService;
         this.projectService = projectService;
         this.entitlementService = entitlementService;
@@ -90,7 +99,8 @@ public class AccessAgentTools {
     }
 
     @Tool(description = "List someone's currently active entitlements: the signed-in user's own, or (for managers) "
-            + "those of a person who reports to them, up to three levels down. Admins may view anyone's.")
+            + "those of a person who reports to them, up to three levels down. Admins may view anyone's. To compare "
+            + "the signed-in user's access with anyone else's, use compareAccessWithColleague instead.")
     public List<AccessItem> getUserExistingAccess(
             @ToolParam(description = "User id: the signed-in user's, or one of their reportees'") String userId,
             ToolContext toolContext) {
@@ -98,6 +108,22 @@ public class AccessAgentTools {
             accessAuthority.requireCanViewAccess(turn.userId(), userId);
             return accessAnalysisService.getExistingAccess(userId).stream()
                     .map(ua -> toItem(ua.entitlement(), null)).toList();
+        });
+    }
+
+    @Tool(description = "Compare the signed-in user's active access with a colleague's (anyone): what the colleague "
+            + "has that the user doesn't, what the user has that the colleague doesn't, and how many they share. "
+            + "Find the colleague's userId with findEmployee first. The comparison is done by the system; present "
+            + "it as-is. It requests nothing.")
+    public ColleagueComparisonView compareAccessWithColleague(
+            @ToolParam(description = "The colleague's user id, from findEmployee") String colleagueUserId,
+            ToolContext toolContext) {
+        return run(toolContext, "compareAccessWithColleague", turn -> {
+            ColleagueComparisonDto c = colleagueAccessService.compare(turn.userId(), colleagueUserId);
+            List<ComparedItem> theirs = c.colleagueOnly().stream().map(AccessAgentTools::toItem).toList();
+            List<ComparedItem> mine = c.youOnly().stream().map(AccessAgentTools::toItem).toList();
+            return new ColleagueComparisonView(c.colleague().userId(), c.colleague().name(), c.fullDetail(),
+                    theirs, mine, c.inCommonCount(), comparisonNextStep(c));
         });
     }
 
@@ -233,6 +259,36 @@ public class AccessAgentTools {
         }
         return "Show alreadyHave and missing, then ask: 'Would you like me to submit the missing access "
                 + "requests?' Do not call createAccessRequest until the user confirms in a later message.";
+    }
+
+    private static String comparisonNextStep(ColleagueComparisonDto c) {
+        String name = c.colleague().name();
+        StringBuilder next = new StringBuilder("List what " + name + " has that the user doesn't, then what the user "
+                + "has that " + name + " doesn't, grouped by application, and say how many they share. ");
+        if (c.colleagueOnly().stream().anyMatch(ComparedEntitlement::restricted)) {
+            next.append("Include every restricted item in the list as 'Restricted (high-risk access)' with its "
+                    + "application; never guess or name the entitlement. ");
+        }
+        List<String> projects = c.colleagueOnly().stream().map(ComparedEntitlement::requestableProjectName)
+                .filter(Objects::nonNull).distinct().toList();
+        if (projects.isEmpty()) {
+            next.append("None of the differences is part of the user's own project access, so do not offer to "
+                    + "request them; for access a role needs beyond its project, the user should ask their manager.");
+        } else {
+            next.append("Items with requestableForProject are part of the required access of the user's project(s) ")
+                    .append(projects)
+                    .append(". Offer to check the user's access for that project; if they agree, call findProject and "
+                            + "calculateMissingAccess for it and follow the normal confirmation flow. Never offer "
+                            + "to request the other differences.");
+        }
+        return next.toString();
+    }
+
+    /** A restricted item gets an explicit label: with no name at all, the model tends to leave it out. */
+    private static ComparedItem toItem(ComparedEntitlement e) {
+        String name = e.restricted() ? "Restricted (high-risk access)" : e.entitlementName();
+        return new ComparedItem(e.application(), e.entitlementCode(), name, e.riskLevel(),
+                e.restricted(), e.requestableProjectId(), e.requestableProjectName(), e.note());
     }
 
     private static UserView toView(UserDto u) {
