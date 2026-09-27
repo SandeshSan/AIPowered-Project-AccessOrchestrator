@@ -69,7 +69,8 @@ public class AccessAuthority {
         if (!canViewAccess(actor, target)) {
             throw new ForbiddenException("You can view your own access and that of people who report to you (up to "
                     + MAX_LEVELS + " levels down); " + target.getName() + " (" + target.getUserId()
-                    + ") does not report to " + actor.getName() + ".");
+                    + ") does not report to " + actor.getName() + ". To see how your access differs from theirs, "
+                    + "use compareAccessWithColleague.");
         }
     }
 

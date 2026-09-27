@@ -38,6 +38,21 @@ public final class AgentModels {
      * @param verification              e.g. "5 required - 2 already granted = 3 missing"
      * @param nextStep                  instruction for the assistant, derived from the data
      */
+    /**
+     * The signed-in user's access compared with a colleague's. {@code restricted} items are the colleague's
+     * high-risk access: only application and risk are shown. {@code requestableFor} names the user's own project
+     * whose required access includes the item.
+     */
+    public record ColleagueComparisonView(String colleagueUserId, String colleagueName, boolean fullDetail,
+                                          List<ComparedItem> colleagueHasYouDont, List<ComparedItem> youHaveTheyDont,
+                                          int inCommonCount, String nextStep) {
+    }
+
+    public record ComparedItem(String application, String entitlementCode, String entitlementName,
+                               RiskLevel riskLevel, boolean restricted, Long requestableForProjectId,
+                               String requestableForProject, String note) {
+    }
+
     public record MissingAccessView(String userId, String userName, String role, Long projectId, String projectName,
                                     List<AccessItem> alreadyHave, List<AccessItem> missing,
                                     List<InFlightItem> alreadyRequested, List<Long> requestableEntitlementIds,

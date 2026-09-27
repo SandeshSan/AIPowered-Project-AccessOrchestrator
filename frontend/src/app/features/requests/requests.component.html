@@ -7,8 +7,8 @@
     <mat-button-toggle-group [value]="filter()" (change)="filter.set($event.value)" aria-label="Filter requests"
                              hideSingleSelectionIndicator>
       <mat-button-toggle value="all">All ({{ requests().length }})</mat-button-toggle>
-      <mat-button-toggle value="open">In progress ({{ openCount() }})</mat-button-toggle>
-      <mat-button-toggle value="closed">Completed</mat-button-toggle>
+      <mat-button-toggle value="open">In progress ({{ inProgressCount() }})</mat-button-toggle>
+      <mat-button-toggle value="closed">Completed ({{ completedCount() }})</mat-button-toggle>
       @if (startedByMe().length) {
         <mat-button-toggle value="startedByMe">Started by me ({{ startedByMe().length }})</mat-button-toggle>
       }
