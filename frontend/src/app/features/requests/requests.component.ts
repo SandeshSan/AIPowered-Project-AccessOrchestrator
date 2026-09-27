@@ -14,7 +14,7 @@ import { ApiService } from '../../core/api.service';
 import { CurrentUserService } from '../../core/current-user.service';
 import { errorMessage, isOpen, requestStatusLabel } from '../../core/format';
 import { Loadable, loadable } from '../../core/loadable';
-import { AccessRequest } from '../../core/models';
+import { AccessRequest, RequestStatus } from '../../core/models';
 import { LifecycleStepperComponent } from '../../shared/lifecycle-stepper.component';
 import { StatusChipComponent } from '../../shared/status-chip.component';
 
@@ -51,15 +51,16 @@ export class RequestsComponent {
 
   protected readonly requests = computed(() => this.state().data?.mine ?? []);
   protected readonly startedByMe = computed(() => this.state().data?.startedByMe ?? []);
-  protected readonly openCount = computed(() => this.requests().filter(r => isOpen(r.status)).length);
+  // Counts use the same rule as the lists they label, so "In progress" + "Completed" always adds up to "All"
+  protected readonly inProgressCount = computed(() => this.requests().filter(r => inProgress(r.status)).length);
+  protected readonly completedCount = computed(() => this.requests().length - this.inProgressCount());
   private readonly anyOpen = computed(() => [...this.requests(), ...this.startedByMe()].some(r => isOpen(r.status)));
   protected readonly visible = computed(() => {
     const f = this.filter();
     if (f === 'startedByMe') {
       return this.startedByMe();
     }
-    return this.requests().filter(r =>
-      f === 'all' || (f === 'open' ? isOpen(r.status) || r.status === 'DRAFT' : !isOpen(r.status) && r.status !== 'DRAFT'));
+    return this.requests().filter(r => f === 'all' || (f === 'open') === inProgress(r.status));
   });
 
   constructor() {
@@ -106,4 +107,9 @@ export class RequestsComponent {
 
   protected isOpen = isOpen;
   protected statusLabel = requestStatusLabel;
+}
+
+/** Not finished yet: with the IGA, or still a draft (e.g. the IGA was unreachable when submitting). */
+function inProgress(status: RequestStatus): boolean {
+  return isOpen(status) || status === 'DRAFT';
 }
